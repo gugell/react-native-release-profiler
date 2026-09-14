@@ -124,3 +124,23 @@ See the [contributing guide](CONTRIBUTING.md) to learn how to contribute to the 
 ## License
 
 MIT
+
+### CLI architecture
+
+`src/cli.ts` parses flags and reports the result. `cli/options.ts` translates
+flags into the named `ProcessProfileOptions` contract; platform-specific options
+are represented by the `ProfileInput` union in `cli/contracts.ts`.
+
+Android, iOS, and local sources implement `resolve(options)`, returning a safe
+profile basename and an asynchronous `copyTo(destination)` operation. Sources
+own device selection, profile discovery, transfer commands, and any temporary
+discovery files. They copy the recording without normalizing or converting it.
+
+`cli/processProfile.ts` owns local destinations, temporary recording cleanup,
+normalization, and conversion. Source-map resolution is independent: explicit
+map, requested Metro generation, platform build lookup, then Metro fallback.
+iOS build paths are not inferred; Android build lookup stays in its own module.
+
+Tests cover sources independently and exercise the shared pipeline with a fake
+source that writes a recording fixture. Adding a source does not require changes
+to profile normalization or conversion.

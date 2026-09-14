@@ -3,8 +3,10 @@ import os from 'os';
 import path from 'path';
 import { execFileSync, execSync } from 'child_process';
 import transformer from '@margelo/hermes-profile-transformer';
-import { downloadProfile } from '../cli';
-import { generateSourcemap, findSourcemap } from '../sourcemapUtils';
+import { parseOptions } from '../cli/options';
+import { processProfile } from '../cli/processProfile';
+import { generateSourcemap } from '../cli/sourcemaps/metro';
+import { androidSourceMaps } from '../cli/sourcemaps/android';
 
 jest.mock('child_process', () => ({
   execFileSync: jest.fn(),
@@ -26,9 +28,11 @@ jest.mock('../getConfig', () =>
     project: { android: { packageName: 'com.android.app' } },
   }))
 );
-jest.mock('../sourcemapUtils', () => ({
+jest.mock('../cli/sourcemaps/metro', () => ({
   generateSourcemap: jest.fn(async () => undefined),
-  findSourcemap: jest.fn(async () => undefined),
+}));
+jest.mock('../cli/sourcemaps/android', () => ({
+  androidSourceMaps: { find: jest.fn(async () => undefined) },
 }));
 
 const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!;
@@ -50,6 +54,42 @@ beforeEach(() => {
 });
 
 afterEach(() => fs.rmSync(destination, { recursive: true, force: true }));
+
+function downloadProfile(
+  local: string | undefined,
+  fromDownload: boolean | undefined,
+  outputDirectory: string,
+  filename?: string,
+  sourcemapPath?: string,
+  raw?: boolean,
+  generateSourcemap?: boolean,
+  port?: string,
+  appId?: string,
+  appIdSuffix?: string,
+  platform?: string,
+  device?: string
+) {
+  return Promise.resolve().then(() =>
+    processProfile(
+      parseOptions(
+        {
+          local,
+          fromDownload,
+          filename,
+          sourcemapPath,
+          raw,
+          generateSourcemap,
+          port,
+          appId,
+          appIdSuffix,
+          platform,
+          device,
+        },
+        outputDirectory
+      )
+    )
+  );
+}
 
 function download(
   overrides: {
@@ -121,7 +161,7 @@ test('converts the extracted trace and requests an iOS source map', async () => 
     '8081',
     expect.objectContaining({ platform: 'ios' })
   );
-  expect(findSourcemap).not.toHaveBeenCalled();
+  expect(androidSourceMaps.find).not.toHaveBeenCalled();
   expect(
     fs.readFileSync(
       path.join(destination, 'profile with spaces-converted.json'),
@@ -177,7 +217,9 @@ test('preserves Android raw download behavior by default', async () => {
     'com.example.app'
   );
   expect(execSync).toHaveBeenCalledWith(
-    expect.stringContaining('adb shell cat /sdcard/Download/profile.cpuprofile')
+    expect.stringMatching(
+      /adb shell .*cat .*sdcard\/Download\/profile.cpuprofile/
+    )
   );
   expect(execFileSync).not.toHaveBeenCalled();
 });
@@ -213,7 +255,7 @@ test('uses an explicitly supplied source map for iOS conversion', async () => {
     'index.bundle'
   );
   expect(generateSourcemap).not.toHaveBeenCalled();
-  expect(findSourcemap).not.toHaveBeenCalled();
+  expect(androidSourceMaps.find).not.toHaveBeenCalled();
 });
 
 function mockDeviceList(devices: unknown[]) {
