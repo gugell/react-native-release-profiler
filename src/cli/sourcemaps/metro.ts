@@ -4,9 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import type { SourceMap } from '@margelo/hermes-profile-transformer';
-import type { MetroBundleOptions } from './getMetroBundleOptions';
-
-type Config = any;
+import type { MetroBundleOptions } from '../../getMetroBundleOptions';
 
 function getTempFilePath(filename: string) {
   return path.join(os.tmpdir(), filename);
@@ -76,49 +74,5 @@ export async function generateSourcemap(
   } else {
     console.log('Error: Cannot obtain source maps from Metro packager server');
     return undefined;
-  }
-}
-
-/**
- *
- * @param ctx
- */
-export async function findSourcemap(
-  ctx: Config,
-  port: string,
-  bundleOptions: MetroBundleOptions
-): Promise<string | undefined> {
-  const intermediateBuildPath = path.join(
-    ctx.root,
-    'android',
-    'app',
-    'build',
-    'intermediates',
-    'sourcemaps',
-    'react',
-    'debug',
-    'index.android.bundle.packager.map'
-  );
-
-  const generatedBuildPath = path.join(
-    ctx.root,
-    'android',
-    'app',
-    'build',
-    'generated',
-    'sourcemaps',
-    'react',
-    'debug',
-    'index.android.bundle.map'
-  );
-
-  if (fs.existsSync(generatedBuildPath)) {
-    console.log(`Getting the source map from ${generateSourcemap}`);
-    return generatedBuildPath;
-  } else if (fs.existsSync(intermediateBuildPath)) {
-    console.log(`Getting the source map from ${intermediateBuildPath}`);
-    return intermediateBuildPath;
-  } else {
-    return generateSourcemap(port, bundleOptions);
   }
 }
